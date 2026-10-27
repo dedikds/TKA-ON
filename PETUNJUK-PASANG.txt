@@ -1,0 +1,61 @@
+PATCH MODE UJIAN / SIMULASI
+Basis: idea.zip yang diberikan, 27 Oktober 2026.
+
+CARA PASANG
+1. Cadangkan database dan file yang akan ditimpa.
+2. Impor database/20261027_mode_ujian.sql ke database aplikasi melalui phpMyAdmin.
+   Impor ulang aman dan tidak mengubah mode yang sudah tersimpan.
+3. Salin folder application dari ZIP patch ke root aplikasi dengan struktur sama.
+   Timpa hanya file yang disertakan. Tidak perlu mengganti konfigurasi database/routes.
+4. Login admin melalui /admin. Buka menu "Mode Ujian / Simulasi", pilih mode,
+   lalu klik Simpan Mode. Halaman ini juga tersedia di /modeujian.
+
+PERILAKU
+- Default setelah pemasangan: Simulasi (perilaku publik lama).
+- Simulasi: paket latihan, login demo berdasarkan IP, dan hasil simulasi tetap
+  menggunakan alur Simulasi yang sudah tersedia.
+- Ujian: root aplikasi dan SEMUA endpoint /simulasi/* dialihkan ke /auth
+  menggunakan HTTP 303. Siswa login melalui autentikasi CBT yang sudah ada,
+  memakai username/password hasil generate pada kartu, bukan akun demo.
+  Form login CBT yang ada mengarahkan siswa ke /siswa/cbt.
+- Mode ujian memakai jadwal CBT, token, durasi, penyimpanan jawaban dan hasil
+  ujian bawaan. Paket simulasi tidak otomatis menjadi jadwal ujian resmi.
+- Admin tetap dapat login melalui /admin untuk mengganti mode kembali.
+- Perubahan berlaku pada request berikutnya tanpa cache mode. Sesi simulasi
+  lama dibatalkan saat peserta melakukan request lagi, termasuk bila mode
+  sempat berganti Ujian lalu kembali Simulasi. Halaman yang sudah terbuka
+  perlu dimuat ulang. Jawaban simulasi yang belum selesai bisa hilang.
+- Mode Simulasi memilih halaman publik latihan; akses CBT resmi melalui login
+  yang sudah ada tetap tersedia. Ujian CBT yang sedang berjalan tidak dibatalkan.
+
+PERSIAPAN UJIAN
+1. Pastikan username/password siswa sudah digenerate dan akun siswa diaktifkan
+   melalui Data Siswa / User Management > Siswa sesuai alur aplikasi.
+2. Cetak kartu melalui Pelaksanaan Ujian > Cetak, gunakan kredensial tersebut.
+3. Pastikan tahun pelajaran/semester, kelas, nomor peserta, ruang/sesi, bank soal,
+   jadwal dan token ujian telah disiapkan seperti penggunaan CBT biasa.
+4. Uji satu akun siswa dari kartu sebelum membuka ujian untuk seluruh peserta.
+
+FILE PATCH
+Baru:
+- application/models/Exam_mode_model.php
+- application/controllers/Modeujian.php
+- application/views/setting/mode_ujian.php
+- database/20261027_mode_ujian.sql
+Diubah:
+- application/controllers/Simulasi.php (guard mode dan invalidasi sesi demo)
+- application/views/_templates/dashboard/sidebar.php (menu khusus admin)
+
+PENGUJIAN
+- PHP lint: seluruh 5 file PHP lulus.
+- 10 skenario dengan stub CodeIgniter lulus: blokir sesi demo mode ujian,
+  revisi mode, sesi simulasi tetap aktif bila revisi sama, sesi lama berakhir
+  bila revisi berubah, pembatasan admin/tamu/siswa, tabel belum tersedia,
+  pilihan mode tidak valid, penyimpanan mode dan penyimpanan mode yang sama.
+- Belum diuji dengan server dan database aplikasi nyata. Lakukan uji pemasangan,
+  login dari kartu, mulai/simpan/selesai ujian, dan pergantian mode di staging.
+
+ROLLBACK
+Kembalikan kedua file yang ditimpa dari cadangan. Tabel cbt_application_mode
+boleh dibiarkan karena kode lama tidak menggunakannya. Akun, kartu, soal,
+jadwal dan nilai tidak dimodifikasi oleh migrasi patch.
